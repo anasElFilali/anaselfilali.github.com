@@ -27,7 +27,18 @@
 
     * { box-sizing: border-box; }
 
-    html, body { height: 100%; }
+    html, body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      transition: background .35s, color .35s;
+    }
+
+    body[data-theme="dark"] {
+      background: var(--bg);
+      color: var(--text);
+    }
 
     body {
       margin: 0;
@@ -184,7 +195,7 @@
     }
   </style>
 </head>
-<body>
+<body data-theme="light">
   <div class="app" id="app" data-theme="light">
     <header>
       <h1>Base de données botanique</h1>
@@ -204,6 +215,7 @@
     let lastMatches = [];
 
     const app = document.getElementById('app');
+    const body = document.body;
     const input = document.getElementById('search');
     const results = document.getElementById('results');
     const display = document.getElementById('display');
@@ -282,7 +294,9 @@
     }
 
     themeBtn.onclick = () => {
-      app.dataset.theme = app.dataset.theme === 'dark' ? 'light' : 'dark';
+      const next = body.dataset.theme === 'dark' ? 'light' : 'dark';
+      body.dataset.theme = next;
+      app.dataset.theme = next;
     };
   </script>
 </body>
