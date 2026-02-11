@@ -1,1 +1,289 @@
-hello
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Base de données des plantes</title>
+  <style>
+    :root {
+      --bg: #f4f6fb;
+      --card: #ffffff;
+      --text: #0f1115;
+      --muted: #5b6170;
+      --accent: #1bbf6b;
+      --border: #e3e6ef;
+      --shadow: 0 8px 24px rgba(0,0,0,.06);
+    }
+
+    [data-theme="dark"] {
+      --bg: #0f1115;
+      --card: #171a21;
+      --text: #e6e6eb;
+      --muted: #9aa0aa;
+      --accent: #39ff88;
+      --border: #262a34;
+      --shadow: 0 8px 28px rgba(0,0,0,.45);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      transition: background .35s, color .35s;
+    }
+
+    .app {
+      min-height: 100vh;
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: 14px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      user-select: none;
+    }
+
+    h1 {
+      font-size: clamp(1.05rem, 3vw, 1.35rem);
+      font-weight: 650;
+      margin: 0;
+      letter-spacing: .4px;
+    }
+
+    .theme-toggle {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 12px;
+      color: var(--text);
+      cursor: pointer;
+      transition: background .3s, transform .2s, box-shadow .2s;
+      user-select: none;
+    }
+
+    .theme-toggle:hover { transform: scale(1.05); box-shadow: var(--shadow); }
+
+    .search-box { position: relative; }
+
+    input {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-size: 1rem;
+      outline: none;
+      transition: border .25s, box-shadow .25s, background .25s;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(57,255,136,.18);
+    }
+
+    .results {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      margin-top: 6px;
+      max-height: 280px;
+      overflow-y: auto;
+      z-index: 10;
+      animation: fadeIn .2s ease;
+      box-shadow: var(--shadow);
+    }
+
+    .hint {
+      padding: 8px 12px;
+      font-size: .8rem;
+      color: var(--muted);
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      transition: background .2s;
+    }
+
+    .hint:hover { background: rgba(0,0,0,.04); }
+
+    [data-theme="dark"] .hint:hover { background: rgba(255,255,255,.04); }
+
+    @keyframes fadeIn { from {opacity:0; transform: translateY(-4px)} to {opacity:1; transform:none} }
+
+    .result-item {
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: background .2s;
+      user-select: none;
+    }
+
+    .result-item:hover { background: rgba(57,255,136,.08); }
+
+    mark {
+      background: var(--accent);
+      color: #000;
+      padding: 0 2px;
+      border-radius: 3px;
+      user-select: none;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      animation: slideUp .35s ease;
+      box-shadow: var(--shadow);
+    }
+
+    .card h2 { margin-top: 0; }
+
+    @keyframes slideUp { from {opacity:0; transform: translateY(10px)} to {opacity:1; transform:none} }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .field {
+      font-size: .92rem;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: .72rem;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+      user-select: none;
+    }
+
+    @media (max-width: 600px) {
+      .app { padding: 12px; }
+      input { font-size: .95rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app" data-theme="light">
+    <header>
+      <h1>Base de données botanique</h1>
+      <button class="theme-toggle" id="themeBtn">🌗</button>
+    </header>
+
+    <div class="search-box">
+      <input id="search" placeholder="Rechercher une plante..." autocomplete="off" />
+      <div class="results" id="results" hidden></div>
+    </div>
+
+    <div id="display"></div>
+  </div>
+
+  <script>
+    let plants = [];
+    let lastMatches = [];
+
+    const app = document.getElementById('app');
+    const input = document.getElementById('search');
+    const results = document.getElementById('results');
+    const display = document.getElementById('display');
+    const themeBtn = document.getElementById('themeBtn');
+
+    fetch('./plants.json')
+      .then(r => { if(!r.ok) throw new Error('Erreur de chargement'); return r.json(); })
+      .then(d => plants = d)
+      .catch(() => showHint('Erreur: impossible de charger plants.json.'));
+
+    input.addEventListener('input', () => search(false));
+
+    function search(showAll) {
+      const q = input.value.trim().toLowerCase();
+      results.innerHTML = '';
+      if (!q) return results.hidden = true;
+
+      lastMatches = plants.filter(p => p.search_index.includes(q));
+
+      if (!lastMatches.length) {
+        showHint('Aucun résultat. Cette plante est probablement morte avant même d\'exister.');
+        return;
+      }
+
+      const shown = showAll ? lastMatches : lastMatches.slice(0, 10);
+
+      shown.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        const i = p.search_index.indexOf(q);
+        div.innerHTML = p.name.slice(0,i) + '<mark>' + p.name.slice(i,i+q.length) + '</mark>' + p.name.slice(i+q.length);
+        div.onclick = () => selectPlant(p);
+        results.appendChild(div);
+      });
+
+      if (!showAll && lastMatches.length > 10) {
+        const hint = document.createElement('div');
+        hint.className = 'hint';
+        hint.textContent = `${lastMatches.length - 10} autres résultats non affichés.`;
+        hint.onclick = () => search(true);
+        results.appendChild(hint);
+      }
+
+      results.hidden = false;
+    }
+
+    function showHint(text) {
+      results.innerHTML = `<div class="hint">${text}</div>`;
+      results.hidden = false;
+    }
+
+    function selectPlant(p) {
+      results.hidden = true;
+      input.value = p.name;
+
+      display.innerHTML = `
+        <div class="card">
+          <h2>${p.name}</h2>
+          <div class="grid">
+            <div class="field"><div class="label">Nom scientifique</div>${p.scientific_name}</div>
+            <div class="field"><div class="label">Famille</div>${p.family}</div>
+            <div class="field"><div class="label">Type</div>${p.type}</div>
+            <div class="field"><div class="label">Taille moyenne (m)</div>${p.avg_height.join(' / ')}</div>
+            <div class="field"><div class="label">Durée de vie (ans)</div>${p.avg_age.join(' / ')}</div>
+            <div class="field"><div class="label">Habitat</div>${p.habitat}</div>
+            <div class="field"><div class="label">Sol</div>${p.soil_type}</div>
+            <div class="field"><div class="label">Fleur</div>${p.flower.color} – ${p.flower.type}, pollinisation: ${p.flower.pollination}</div>
+            <div class="field"><div class="label">Fruit</div>${p.fruit.type} – ${p.fruit.description}</div>
+            <div class="field"><div class="label">Utilisation du fruit</div>${p.fruit.uses}</div>
+            <div class="field"><div class="label">Saison de fructification</div>${p.fruiting_season}</div>
+            <div class="field"><div class="label">Utilisations</div>${p.uses}</div>
+            <div class="field"><div class="label">Statut</div>${p.status}</div>
+            <div class="field"><div class="label">Notes</div>${p.notes}</div>
+          </div>
+        </div>`;
+    }
+
+    themeBtn.onclick = () => {
+      app.dataset.theme = app.dataset.theme === 'dark' ? 'light' : 'dark';
+    };
+  </script>
+</body>
+</html>
